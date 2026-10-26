@@ -1,0 +1,39 @@
+{
+  "name": "ScreenAPI",
+  "description": "API de Screenshots Professionnelle - Capture de screenshots avec Playwright",
+  "repository": "https://github.com/votre-username/screenapi",
+  "keywords": ["nextjs", "screenshot", "api", "playwright", "saas"],
+  "success_url": "/",
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  },
+  "addons": [
+    {
+      "plan": "heroku-postgresql:mini",
+      "as": "DATABASE"
+    }
+  ],
+  "env": {
+    "NODE_ENV": {
+      "value": "production"
+    },
+    "NEXTAUTH_SECRET": {
+      "generator": "secret"
+    },
+    "NEXTAUTH_URL": {
+      "description": "L'URL de votre application Heroku (sera auto-configurée)",
+      "value": "https://your-app-name.herokuapp.com"
+    },
+    "NEXT_PUBLIC_APP_NAME": {
+      "value": "ScreenAPI"
+    }
+  }
+}

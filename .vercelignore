@@ -1,0 +1,27 @@
+# Test files
+test-screenshots/
+screenshots/
+*.png
+*.jpg
+*.jpeg
+*.webp
+!public/**/*.png
+!public/**/*.jpg
+!public/**/*.jpeg
+!public/**/*.webp
+
+# Dev database
+prisma/dev.db
+prisma/dev.db-journal
+
+# Dev files
+.env.local
+.env.development.local
+
+# Tests
+playwright-report/
+test-results/
+
+# Logs
+*.log
+logs/

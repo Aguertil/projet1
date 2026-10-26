@@ -1,0 +1,181 @@
+// Schéma Prisma pour le Service d'API de Screenshots Web
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Modèle utilisateur principal
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String?
+  passwordHash  String?
+  emailVerified DateTime?
+  image         String?
+  
+  // Relations
+  apiKeys       ApiKey[]
+  usageLogs     UsageLog[]
+  subscriptions Subscription[]
+  screenshots   Screenshot[]
+  
+  // Métadonnées
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  @@index([email])
+}
+
+// Plan d'abonnement (SQLite uses String, validate in code)
+// enum Plan { FREE, PRO, ENTERPRISE }
+
+// Modèle d'abonnement avec intégration Stripe
+model Subscription {
+  id                   String              @id @default(cuid())
+  userId               String
+  user                 User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Plan & Credits
+  plan                 String              @default("FREE") // FREE, PRO, ENTERPRISE
+  status               String              @default("ACTIVE") // ACTIVE, CANCELED, EXPIRED, TRIALING
+  creditsTotal         Int                 @default(100) // Credits mensuels
+  creditsUsed          Int                 @default(0)
+  creditsRemaining     Int                 @default(100)
+  
+  // Intégration Stripe
+  stripeCustomerId     String?             @unique
+  stripeSubscriptionId String?             @unique
+  stripePriceId        String?
+  stripeCurrentPeriodEnd DateTime?
+  
+  // Métadonnées
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  expiresAt            DateTime?
+  
+  @@index([userId])
+  @@index([stripeCustomerId])
+  @@index([stripeSubscriptionId])
+}
+
+// Modèle de clé API
+model ApiKey {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Clé API
+  key         String      @unique // Format: sk_live_xxx ou sk_test_xxx
+  name        String      // Nom descriptif de la clé
+  
+  // Sécurité
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  isActive    Boolean     @default(true)
+  
+  // Rate limiting spécifique à la clé
+  rateLimit   Int         @default(60) // Requêtes par minute
+  
+  // Relations
+  usageLogs   UsageLog[]
+  
+  // Métadonnées
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  @@index([userId])
+  @@index([key])
+  @@index([isActive])
+}
+
+// Status, Format, and ViewportType are stored as Strings in SQLite
+// Validation is done in the application code
+
+// Log d'utilisation pour analytics et facturation
+model UsageLog {
+  id              String         @id @default(cuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKeyId        String
+  apiKey          ApiKey         @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+  
+  // Détails de la requête
+  url             String
+  status          String         // SUCCESS, FAILED, RATE_LIMITED, INSUFFICIENT_CREDITS, TIMEOUT
+  format          String         @default("PNG") // PNG, JPEG, WEBP
+  viewportType    String         @default("DESKTOP") // DESKTOP, MOBILE, TABLET, CUSTOM
+  
+  // Viewport dimensions
+  viewportWidth   Int?
+  viewportHeight  Int?
+  
+  // Métriques de performance
+  durationMs      Int?           // Temps d'exécution en millisecondes
+  fileSizeBytes   Int?           // Taille du fichier généré
+  
+  // Options utilisées
+  fullPage        Boolean        @default(false)
+  waitForSelector String?
+  hideElements    String?        // Sélecteurs séparés par virgule
+  
+  // Coûts
+  creditsUsed     Int            @default(1)
+  
+  // Métadonnées
+  ipAddress       String?
+  userAgent       String?
+  errorMessage    String?
+  
+  // Relation avec screenshot
+  screenshotId    String?
+  screenshot      Screenshot?    @relation(fields: [screenshotId], references: [id])
+  
+  createdAt       DateTime       @default(now())
+  
+  @@index([userId])
+  @@index([apiKeyId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Modèle pour stocker les métadonnées des screenshots
+model Screenshot {
+  id              String         @id @default(cuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // URL source
+  url             String
+  
+  // Stockage
+  storageUrl      String         // URL du fichier stocké (S3, R2, etc.)
+  storageKey      String         // Clé de stockage
+  
+  // Métadonnées de l'image
+  format          String         // PNG, JPEG, WEBP
+  width           Int
+  height          Int
+  fileSizeBytes   Int
+  
+  // Configuration utilisée
+  viewportType    String         // DESKTOP, MOBILE, TABLET, CUSTOM
+  viewportWidth   Int
+  viewportHeight  Int
+  fullPage        Boolean        @default(false)
+  
+  // Relations
+  usageLogs       UsageLog[]
+  
+  // Métadonnées
+  createdAt       DateTime       @default(now())
+  expiresAt       DateTime?      // Pour suppression automatique après X jours
+  
+  @@index([userId])
+  @@index([createdAt])
+  @@index([expiresAt])
+}
